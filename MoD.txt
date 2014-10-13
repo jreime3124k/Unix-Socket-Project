@@ -1,0 +1,5 @@
+It is impossible to build a fool proof system; because fools are so ingenious.
+Information travels more surely to those with a lesser need to know.
+A bug in the code is worth two in the documentation.
+A computer scientist is someone who fixes things that aren't broken.
+The answer to the ultimate question of life, the universe and everything is 42. ~Douglas Adams, The Hitchhiker's Guide to the Galaxy~
