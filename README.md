@@ -3,12 +3,13 @@ Unix-Socket-Project
 ----------
 Intro
 ----------
-Socket Program 1 CIS 527
-Version 1.0
+Socket Program 2 CIS 527
+Version 2.0
 Fall 14
 Gareth Lawlor
 Joshua Reimer
 Responsibilites will be designated next to each functional area below and in greater detail at the bottom of the document.
+Version 2.0 introduces MultiThreading and supports multiple clients to connect at a time.  SEND and WHO functions are also added.
 
 -----------------
 Table of Contents
@@ -31,6 +32,12 @@ Reads a message from a file on the server and responds contents to the client.  
 
 --MSGSTORE--Gareth
 Allows logged in users to add a message of the day to the MoD.txt file on the server.  Users will receive an error if they are not logged in.
+
+--WHO--
+List all active users, including the UserID and the users IP addresses.
+
+--SEND--
+Send a private message to an active user.  If the UserID is invalid or the receiver is not active, the server replies the client with an error message “420 either the user does not exist or is not logged in”; otherwise, the server forwards the message to the designated user.  In addition, the receiving client should process the message immediately.
 
 --LOGOUT--Josh
 Logs the user out of the system.
@@ -74,33 +81,35 @@ There are no known bugs.
 ---------------
 Sample outputs:
 ---------------
+~~~~~output from a LOGIN command
+CLIENT: LOGIN john john01
+SERVER: 200 OK Logged In
 
--- CLIENT: LOGIN john john01
-—- SERVER: 200 OK Logged In
+CLIENT: 1
+SERVER: 200 OK (returns the first message in the file)
 
--- CLIENT: 1
-—- SERVER: 200 OK (returns the first message in the file)
-
--- CLIENT: 2
-—- SERVER: 200 OK 
--- CLIENT: Logged In, Send buffer
+CLIENT: 2
+SERVER: 200 OK 
+CLIENT: Logged In, Send buffer
 
 
--- CLIENT: 3
-—- SERVER: 200 OK: Logged out
+CLIENT: 3
+SERVER: 200 OK: Logged out
 
--- CLIENT: 4
-—- SERVER: Quitting program…
+CLIENT: 4
+SERVER: Quitting program…
 
 ~~~~~output from a non root user trying to run the shutdown command
 Client: 5
 SERVER: 402 User not allowed to execute this command
 
 ~~~~~output from a root user running the shutdown command
--- CLIENT: 5
-—- SERVER: Shutting down the server interface …
+CLIENT: 5
+SERVER: Shutting down the server interface …
 Goodbye!
-—- CLIENT: Server Shutdown
+CLIENT: Server Shutdown
+--At other clients
+s: 210 the server is about to shutdown ......
 
 ~~~~~output from a logged in user sending a message to be written to the file and then retrieving it.
 
@@ -131,6 +140,23 @@ Client: 1
 SERVER: 200 OK
 today is the first day of the rest of your life
 
+~~~~~output from WHO command
+c: WHO
+s: 200 OK
+  The list of the active users:
+  john    141.215.10.30
+  root    127.0.0.1
+  
+~~~~~output from a user running the SEND command
+--David's window
+c: SEND john
+s: 200 OK
+c: Hello John
+s: 200 OK
+--John's window
+s: 200 OK you have a message from david
+david: Hello John
+
 --------------
 Files Included
 --------------
@@ -152,6 +178,9 @@ Responsibilities
 ----------------
 The project was split amounst us fairly as we had varying experience with C\C++.
 We both refined each other's work with editing and validating code, as well as debugging.
+SEND      --??
+WHO       --??
+MultiThread --??
 MSGGET		--Gareth
 MSGSTORE	--Gareth
 LOGOUT		--Josh
