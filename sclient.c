@@ -37,7 +37,13 @@ int main(int argc, char * argv[]) {
     char buf[MAX_LINE];
     int len;
     int s;
-
+	char rbuf[MAX_LINE];
+	char rbuf2[MAX_LINE];
+	char msgstorsnd[MAX_LINE];
+	char msgstorrce[MAX_LINE];
+    int len1;
+	char *message;
+	
     FD_ZERO(&master);    // clear the master and temp sets
     FD_ZERO(&read_fds);
 
@@ -90,8 +96,45 @@ int main(int argc, char * argv[]) {
 
 		if (FD_ISSET(s, &read_fds)) {
 			// handle data from the server
-			if (recv(s, buf, sizeof(buf), 0) > 0) {
+			if (recv(s, buf, sizeof(buf), 0) > 0)
+			{
 				cout << buf;
+				//add menu branching here
+				if (strcmp(buf,"Quitting program...\n----All your base are belong to us!----\n") == 0)
+				{
+					cout << endl;
+					exit(1);
+				}
+			else if (strcmp(buf,"Shutting down the server interface...\nGoodbye!\n") == 0)
+			{
+				cout << "Server Shutdown" << endl;
+				exit(1);
+			}
+			else if (strcmp(buf,"200 OK\n") == 0)
+			{
+				cout << "Logged In, Send buffer\n";
+				char msgstorsnd[MAX_LINE] = "";
+				cin.getline(msgstorsnd, 256);
+				//string msgstring;
+				//cin >> ios::skipws msgstring;
+				//size_t length = msgstring.copy(msgstorsnd,MAX_LINE,0);
+				cout << "msgSend: " << msgstorsnd <<endl;
+				
+				len1 = strlen(msgstorsnd) +1;
+				msgstorsnd[len1 -1] = '\0';
+				//cout << "msgstring: " << msgstring << endl;
+				//cout << "msgSend: " << msgstorsnd <<endl;
+				//len1 = strlen(msgstorsnd) +1;
+				//send (s, msgstorsnd, sizeof(msgstorsnd), 0);
+				send (s, msgstorsnd, len1, 0);
+				recv (s, rbuf2, sizeof(rbuf2), 0);
+				cout << "SERVER: " << rbuf2 << endl;
+				cout << "Client: ";
+			}
+				
+				
+				
+				
 			}
         }
     }
