@@ -1,7 +1,14 @@
-/*
- * multiThreadServer.c -- a multithreaded server
- */
-
+/**********************************************************
+PROGRAM: 		Server for MultiThread Unix Socket
+AUTHOR:			Gareth Lawlor, Joshua Reimer
+CLASS:			CIS 527: Project 2
+DATE:			11/10/2014
+VERSION#:		2.0
+DESCRIPTION:	See README
+FIX HISTORY:	See README
+FILENAME:		multiThreadServer.c
+NOTES:			Available on GitHub: https://github.com/GLawlor-/Unix-Socket-Project
+***********************************************************/
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +35,7 @@ int listener;    // listening socket descriptor
 int fdmax;
 int line_count;	 // Set global variable for MSG Tracking
 int shutdowncmd = 0; //Flag to signal server shutdown
+string logUser[10][10];
 
 // the child thread
 void *ChildThread(void *newfd) {
@@ -39,12 +47,12 @@ void *ChildThread(void *newfd) {
 	int msglen;		//find length of char array to send
 	int msglen1;
 	int mnum = 0;		//Initialize to get first message
-	int shutdowncmd =0; //Flag to signal server shutdown request
+	//int shutdowncmd =0; //Flag to signal server shutdown request
 	int loggedin = 0;	//Flag for user logged in
 	int rootuser = 0;	//Flag if root user
 	
 	string ReadData(int a);  //Declare function to read Message of the Day data
-	int UserLogin(string b);
+	int UserLogin(string b, int c);
 	string SendMessage(int a);
 	
     while(1) {
@@ -53,7 +61,7 @@ void *ChildThread(void *newfd) {
             // got error or connection closed by client
             if (nbytes == 0) {
                 // connection closed
-                cout << "multiThreadServer: socket " << childSocket <<" hung up" << endl;
+                cout << "Server: socket " << childSocket <<" hung up" << endl;
             } else {
                 perror("recv");
             }
@@ -62,13 +70,11 @@ void *ChildThread(void *newfd) {
             pthread_exit(0);
         } else {
             // we got some data from a client
-            cout << childSocket << ": "<< buf;
-//Need to incorporate decision tree here
-//I'm thinking a function is required, maybe an external C++
-//shutdown needs to close all ports first
+            cout << "Client " << childSocket << ": "<< buf;
+
 			if( (strcmp(buf, "1\n")) == 0 || (strcmp(buf, "MSGGET\n")) == 0 )
 			{
-				cout << "MSGGET Received" << endl;
+				//cout << "MSGGET Received" << endl;
 				
 				string currentsay = "200 OK\n" + ReadData(mnum);  //retrieve Message of the Day from ReadData function
 				mnum++;		//Increment so next request provides different message
@@ -98,14 +104,14 @@ void *ChildThread(void *newfd) {
 			{
 				//Append to MoD.txt
 				//Check if user is logged in
-				if (loggedin == 1)
+				if (( loggedin == 1) || (loggedin == 2))
 				{
 					char msgres[MAX_LINE] = "200 OK\n";
 					msglen = strlen (msgres)+1;
 					send (childSocket, msgres, msglen, 0);	//send 200 OK
-					/*recv(childSocket, buf1, sizeof(buf1), 0);	//receive msg to store
-					int buf1size = strlen(buf1) + 1;	//size of second receive
-					cout << "Client(MessageStore): " << buf1 <<endl<<"   size: "<<buf1size<<endl;	//Display received message and size
+					recv(childSocket, buf, sizeof(buf), 0);	//receive msg to store
+					int buf1size = strlen(buf) + 1;	//size of second receive
+					cout << "Client(MessageStore): " << buf <<endl<<"   size: "<<buf1size<<endl;	//Display received message and size
 					//append buf1 text to file
 					//return error if file can't open
 					ofstream outfile;	//initialize "outfile"
@@ -114,7 +120,7 @@ void *ChildThread(void *newfd) {
 					//send error if file can't open
 					if ( outfile )
 					{
-						outfile << buf1 << endl;	//output buf1 contents
+						outfile << buf << endl;	//output buf1 contents
 						char msgres1[MAX_LINE] = "200 OK\n";	//send confirmation
 						msglen1 = strlen (msgres1)+1;	//Calculate size of buffer
 						send (childSocket, msgres1, msglen1, 0);	//send message to client
@@ -127,7 +133,7 @@ void *ChildThread(void *newfd) {
 					}
 					
 					outfile.close();			//close the open file
-					*/
+					
 				}
 				else
 				{
@@ -161,14 +167,45 @@ void *ChildThread(void *newfd) {
 				if (loggedin == 2)
 				{
 					//Tell the client to turn off
-					char msgres[MAX_LINE] = "Shutting down the server interface...\nGoodbye!\n";
+					char msgres[MAX_LINE] = "200 OK\nShutting down the server interface...\nGoodbye!\n";
 					msglen = strlen (msgres)+1;
 					send (childSocket, msgres, msglen, 0); 
 					//shutdown command: take care of shutting down server side items
 					int shutdown(int childSocket, int how);
+					
 					shutdowncmd = 1;
+					//exit(1);
+					
 					//close all open sockets and files, then terminate.  In case of error the string
 					//need "300 message format error" should be returned.
+					//send to all
+					char shutd[MAX_LINE] = "\n210 The server is about to shutdown...\nGoodbye\n";
+					msglen = strlen (shutd)+1;
+					
+					
+					for(j = 0; j <= fdmax; j++) {
+						// send to everyone!
+						if (FD_ISSET(j, &master)) {
+							// except the listener and ourselves
+							if (j != listener && j != childSocket) {
+								//cout << "j: " << j<< endl;
+								if (send(j, shutd, msglen, 0) == -1) {
+									perror("send");
+								}
+							}
+						}
+						int shutdown(int j, int how);
+					}
+					
+					//Shutdown sockets and then server program
+					if ( shutdowncmd == 1 )
+					{
+						cout << "Client " << childSocket << " Initiated Shut Down" << endl;
+						exit(1);
+					}	
+					
+					
+					
 				}	
 				else
                 {
@@ -194,7 +231,14 @@ void *ChildThread(void *newfd) {
 				int buflen = strlen (buf)-1;	//Get length of string -1: where the \n is
 				buf[buflen] = '\0';				//Get rid of \n so string compare works
 				string bufstring = buf;			//Convert to string so we can pass to function
-				loggedin = UserLogin(bufstring);//Find if the user is in our flat file
+				loggedin = UserLogin(bufstring,childSocket);//Find if the user is in our flat file
+				
+				//need to increment and find user
+				//cout << "LOGGEDIN: " << logUser[0][4];
+				cout << "LOGGEDIN: " << logUser[0][childSocket];
+				//Can't find user
+				cout << "420 either the user does not exist or is not logged in" << endl;
+				
 				
 				//Send message of loggedin status
 				if (( loggedin == 1) || (loggedin == 2))
@@ -228,10 +272,7 @@ void *ChildThread(void *newfd) {
 				cout << "Not Recognized"<<endl;
 				char msgres[MAX_LINE] = "Command not recognized\n--Type MENU or ? for available options--\n";
 				msglen = strlen (msgres)+1;
-				//j = childSocket;
 				send (childSocket, msgres, msglen, 0);
-				
-				//send(j, buf, nbytes, 0);			
 			}
 		
             
@@ -266,6 +307,7 @@ int main(void)
 
     FD_ZERO(&master);    // clear the master and temp sets
 
+		
     // get the listener
     if ((listener = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
@@ -301,19 +343,20 @@ int main(void)
     fdmax = listener; // so far, it's this one
 
     addrlen = sizeof(remoteaddr);
-
+	cout << "Server has been started...Awaiting connections\n";
     // main loop
     for(;;) {
         // handle new connections
+		
         if ((newfd = accept(listener, (struct sockaddr *)&remoteaddr, &addrlen)) == -1) {
             perror("accept");
 	        exit(1);
         } else {
             FD_SET(newfd, &master); // add to master set
-            cout << "multiThreadServer: new connection from "
+            cout << "Server: new connection from "
 		 		 << inet_ntoa(remoteaddr.sin_addr)
                  << " socket " << newfd << endl;
-
+			
             if (newfd > fdmax) {    // keep track of the maximum
                 fdmax = newfd;
             }
@@ -363,7 +406,7 @@ string ReadData(int a)
 				string data2 = data[a];
 				return data2;
 }
-int UserLogin(string b)
+int UserLogin(string b, int c)
 {
 				string lineUsers;		//read in value from file
 				//string dataUsers[20];	//Array to hold all the users: 20 total
@@ -387,6 +430,8 @@ int UserLogin(string b)
 						cout << "b: " << b << endl;*/
 						if ( ("LOGIN " + lineUsers) == b){
 							userValid = 1;	//Set User is Valid Flag; User will be logged in at end of function
+							logUser[0][c] = lineUsers;
+							
 						}
 						if ( (b) == "LOGIN root root01")
 						{

@@ -1,7 +1,14 @@
-/*
- * sclient.c
- */
-
+/**********************************************************
+PROGRAM: 		Client for MultiThread Unix Socket
+AUTHOR:			Gareth Lawlor, Joshua Reimer
+CLASS:			CIS 527: Project 2
+DATE:			11/10/2014
+VERSION#:		2.0
+DESCRIPTION:	See README
+FIX HISTORY:	See README
+FILENAME:		sclient.c
+NOTES:			Available on GitHub: https://github.com/GLawlor-/Unix-Socket-Project
+***********************************************************/
 #include <iostream>
 #include <stdio.h>
 #include <strings.h>
@@ -74,6 +81,9 @@ int main(int argc, char * argv[]) {
     // keep track of the biggest file descriptor
     fdmax = s; // so far, it's this one
 
+	// Send Welcome Message
+	cout << "Welcome to the server!\nPlease send a ? or MENU to see your options\nClient: " << flush;
+	
     /* main loop; get and send lines of text */
     while (1) {
         read_fds = master; // copy it
@@ -81,7 +91,7 @@ int main(int argc, char * argv[]) {
             perror("select");
             exit(1);
         }
-
+		
         // looking for data to read either from the server or the user
         if (FD_ISSET(STDIN, &read_fds)) {
 			// handle the user input
@@ -98,40 +108,41 @@ int main(int argc, char * argv[]) {
 			// handle data from the server
 			if (recv(s, buf, sizeof(buf), 0) > 0)
 			{
-				cout << buf;
-				//add menu branching here
+				cout << "\nServer: " << buf << flush;
+				//Client reactions start here
 				if (strcmp(buf,"Quitting program...\n----All your base are belong to us!----\n") == 0)
 				{
 					cout << endl;
 					exit(1);
 				}
-			else if (strcmp(buf,"Shutting down the server interface...\nGoodbye!\n") == 0)
-			{
-				cout << "Server Shutdown" << endl;
-				exit(1);
-			}
-			else if (strcmp(buf,"200 OK\n") == 0)
-			{
-				cout << "Logged In, Send buffer\n";
-				char msgstorsnd[MAX_LINE] = "";
-				cin.getline(msgstorsnd, 256);
-				//string msgstring;
-				//cin >> ios::skipws msgstring;
-				//size_t length = msgstring.copy(msgstorsnd,MAX_LINE,0);
-				cout << "msgSend: " << msgstorsnd <<endl;
+				else if (strcmp(buf,"200 OK\nShutting down the server interface...\nGoodbye!\n") == 0)
+				{
+					cout << "Server Shutdown" << endl;
+					exit(1);
+				}
+				else if (strcmp(buf,"210 The server is about to shutdown...\nGoodbye\n") == 0)
+				{
+					//cout << buf << endl;
+					cout << endl;
+					exit(1);
+				}
+				else if (strcmp(buf,"200 OK\n") == 0)
+				{
+					//Received Signal that MSGSTORE is writable
+					cout << "Logged In, Send buffer\n";
+					char msgstorsnd[MAX_LINE] = "";
+					//Get user's input for MSGSTORE
+					cin.getline(msgstorsnd, 256);
+					len1 = strlen(msgstorsnd) +1;
+					msgstorsnd[len1 -1] = '\0';
+					
+					send (s, msgstorsnd, len1, 0);
+					recv (s, rbuf2, sizeof(rbuf2), 0);
+					cout << "SERVER: " << rbuf2 << endl;
+					
+				}
 				
-				len1 = strlen(msgstorsnd) +1;
-				msgstorsnd[len1 -1] = '\0';
-				//cout << "msgstring: " << msgstring << endl;
-				//cout << "msgSend: " << msgstorsnd <<endl;
-				//len1 = strlen(msgstorsnd) +1;
-				//send (s, msgstorsnd, sizeof(msgstorsnd), 0);
-				send (s, msgstorsnd, len1, 0);
-				recv (s, rbuf2, sizeof(rbuf2), 0);
-				cout << "SERVER: " << rbuf2 << endl;
-				cout << "Client: ";
-			}
-				
+				cout << "Client: " << flush;  //Repeat every cycle and force the output to screen
 				
 				
 				
