@@ -37,7 +37,7 @@ int listener;    // listening socket descriptor
 int fdmax;
 int line_count;	 // Set global variable for MSG Tracking
 int shutdowncmd = 0; //Flag to signal server shutdown
-string connInfo[10][1];  //List of 10 connections, with information: first part is socket#, second part '0' is IP address, '1' is UserName
+string connInfo[10];  //List of 10 connections, with information: first part is socket#, second part '0' is IP address, '1' is UserName
 string connUser[10];
 
 // the child thread
@@ -64,7 +64,7 @@ void *ChildThread(void *newfd) {
             if (nbytes == 0) {
                 // connection closed
                 cout << "Server: socket " << childSocket <<" hung up" << endl;
-				
+				connInfo[childSocket] = "disconnect";	//Remove from Array
             } else {
                 perror("recv");
             }
@@ -225,7 +225,14 @@ void *ChildThread(void *newfd) {
 				int buflen = strlen (buf)-1;	//Get length of string -1: where the \n is
 				buf[buflen] = '\0';				//Get rid of \n so string compare works
 				string bufstring = buf;			//Convert to string so we can pass to function
+				/*if ((loggedin ==1) || (loggedin ==2))
+				{
+					
+				}
+				else
+				{*/
 				loggedin = UserLogin(bufstring,childSocket);//Find if the user is in our flat file
+				//}
 				
 				//Send message of loggedin status
 				if (( loggedin == 1) || (loggedin == 2))
@@ -239,8 +246,9 @@ void *ChildThread(void *newfd) {
 				while (ss >> tokbuf)
 					tokens.push_back(tokbuf);
 				
-				connInfo[childSocket][1] = tokens[1];
-				cout << "Logged in as: " << tokens[1] << endl;//tokarray[1] << endl;
+				//connInfo[childSocket][1] = tokens[1];
+				connUser[childSocket] = tokens[1];
+				cout << "Client " << childSocket << ": logged in as " << connUser[childSocket] << endl;//tokarray[1] << endl;
 				
 				char msgres[MAX_LINE] = "200 OK: Logged In\n";
 				msglen = strlen (msgres)+1;
@@ -263,18 +271,37 @@ void *ChildThread(void *newfd) {
 				size_t length = listUsers.copy(msgres,MAX_LINE,0);
 				msgres[length]='\n';	//add newline at end of Message of the Day
 				*/
+				string listUsers = "200 OK\nThe list of active users:\n";
+				
 				int a;
 				for(a = 4; a <= fdmax; a++)
 				{
-					//if ( (strstr(connInfo[a][0],"\n")) != NULL )
+					string connUser1 = connInfo[a];
+					if (connUser1.compare("disconnect") != 0)
+					{
+						//cout << connInfo[a][1] << "    " << connInfo[a][0] << endl;
+						//cout << "ConnUser " << a << ": " << connUser[a] << endl;
+						//cout << connUser[a] << "       " << connInfo[a] << endl;
+						listUsers = listUsers + connUser[a]+ "       " + connInfo[a] + "\n";
+					}
+					//else
 					//{
-						cout << connInfo[a][1] << "    " << connInfo[a][0] << endl;
+					//	cout << "Connuser " << a << ": Anonymous" << endl;
 					//}
 				}
 				//need to build as an array
 				
 				//printf( "%s\n", connInfo ); cout << endl;
-				char msgres[MAX_LINE] = "200 OK\nThe list of active users:\njohn		127.0.0.1\n";
+				
+				char msgres[MAX_LINE] = "";	//blank out msgres char array
+				//string listUsers = "200 OK\nThe list of active users:\n";
+				
+				size_t length = listUsers.copy(msgres,MAX_LINE,0);
+				msgres[length]='\n';	//add newline at end of Message of the Day
+				//cout << "length: " << length << endl;
+				//cout << "msgres: " << msgres << endl;
+				
+				//char msgres[MAX_LINE] = "200 OK\nThe list of active users:\njohn		127.0.0.1\n";
 				msglen = strlen (msgres)+1;
 				send (childSocket, msgres, msglen, 0);
 			}
@@ -301,7 +328,7 @@ void *ChildThread(void *newfd) {
 					//if ( (strstr(connInfo[a][0],"\n")) != NULL )
 					//{
 						
-						cout << "UsersLoggedIn: " << connInfo[a][1] << endl;
+						//cout << "UsersLoggedIn: " << connInfo[a][1] << endl;
 					//}
 				}
 				
@@ -428,8 +455,8 @@ int main(void)
 		 		 << inet_ntoa(remoteaddr.sin_addr)
                  << " socket " << newfd << endl;
 			//set the socket info here
-			connInfo[newfd][0] = inet_ntoa(remoteaddr.sin_addr);
-			connInfo[newfd][1] = "Anonymous";
+			connInfo[newfd] = inet_ntoa(remoteaddr.sin_addr);
+			connUser[newfd] = "Anonymous";
 			
             if (newfd > fdmax) {    // keep track of the maximum
                 fdmax = newfd;
