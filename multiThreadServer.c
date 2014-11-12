@@ -24,6 +24,8 @@ NOTES:			Available on GitHub: https://github.com/GLawlor-/Unix-Socket-Project
 #include <iostream>
 #include <fstream>
 #include <strings.h>
+#include <vector>
+#include <sstream>
 
 using namespace std;
 
@@ -35,7 +37,8 @@ int listener;    // listening socket descriptor
 int fdmax;
 int line_count;	 // Set global variable for MSG Tracking
 int shutdowncmd = 0; //Flag to signal server shutdown
-string connInfo[10][10];  //List of 10 connections, with information
+string connInfo[10][1];  //List of 10 connections, with information: first part is socket#, second part '0' is IP address, '1' is UserName
+string connUser[10];
 
 // the child thread
 void *ChildThread(void *newfd) {
@@ -53,7 +56,6 @@ void *ChildThread(void *newfd) {
 	
 	string ReadData(int a);  //Declare function to read Message of the Day data
 	int UserLogin(string b, int c);  //Function to check if user and password is correct
-	string SendMessage(int a);
 	
     while(1) {
         // handle data from a client
@@ -62,6 +64,7 @@ void *ChildThread(void *newfd) {
             if (nbytes == 0) {
                 // connection closed
                 cout << "Server: socket " << childSocket <<" hung up" << endl;
+				
             } else {
                 perror("recv");
             }
@@ -224,12 +227,21 @@ void *ChildThread(void *newfd) {
 				string bufstring = buf;			//Convert to string so we can pass to function
 				loggedin = UserLogin(bufstring,childSocket);//Find if the user is in our flat file
 				
-				
-				
-				
 				//Send message of loggedin status
 				if (( loggedin == 1) || (loggedin == 2))
 				{
+				//extract userid from buf and add to array
+				
+				string tokbuf;  //Buffer for token extract
+				stringstream ss(bufstring);  //Insert string to stream
+				
+				vector<string> tokens;	//Vector to hold words;
+				while (ss >> tokbuf)
+					tokens.push_back(tokbuf);
+				
+				connInfo[childSocket][1] = tokens[1];
+				cout << "Logged in as: " << tokens[1] << endl;//tokarray[1] << endl;
+				
 				char msgres[MAX_LINE] = "200 OK: Logged In\n";
 				msglen = strlen (msgres)+1;
 				send (childSocket, msgres, msglen, 0);
@@ -251,6 +263,17 @@ void *ChildThread(void *newfd) {
 				size_t length = listUsers.copy(msgres,MAX_LINE,0);
 				msgres[length]='\n';	//add newline at end of Message of the Day
 				*/
+				int a;
+				for(a = 4; a <= fdmax; a++)
+				{
+					//if ( (strstr(connInfo[a][0],"\n")) != NULL )
+					//{
+						cout << connInfo[a][1] << "    " << connInfo[a][0] << endl;
+					//}
+				}
+				//need to build as an array
+				
+				//printf( "%s\n", connInfo ); cout << endl;
 				char msgres[MAX_LINE] = "200 OK\nThe list of active users:\njohn		127.0.0.1\n";
 				msglen = strlen (msgres)+1;
 				send (childSocket, msgres, msglen, 0);
@@ -272,6 +295,15 @@ void *ChildThread(void *newfd) {
 				//need to string find user
 				
 				//need to return Login Socket
+				int a;
+				for(a = 4; a <= fdmax; a++)
+				{
+					//if ( (strstr(connInfo[a][0],"\n")) != NULL )
+					//{
+						
+						cout << "UsersLoggedIn: " << connInfo[a][1] << endl;
+					//}
+				}
 				
 				if ( 1==1 )
 				{
@@ -294,10 +326,6 @@ void *ChildThread(void *newfd) {
 					msglen1 = strlen (msgres)+1;	//Calculate size of buffer
 					send (childSocket, msgres, msglen1, 0);	//send message to another user
 				}
-				
-				
-				
-				
 				
 				
 			}
@@ -400,7 +428,8 @@ int main(void)
 		 		 << inet_ntoa(remoteaddr.sin_addr)
                  << " socket " << newfd << endl;
 			//set the socket info here
-			
+			connInfo[newfd][0] = inet_ntoa(remoteaddr.sin_addr);
+			connInfo[newfd][1] = "Anonymous";
 			
             if (newfd > fdmax) {    // keep track of the maximum
                 fdmax = newfd;
@@ -414,14 +443,6 @@ int main(void)
 
     }
     return 0;
-}
-
-string SendMessage(int a)
-{
-	
-	string data[] = "Send Message\n";
-	string data2 = data[a];
-	return data2;
 }
 
 string ReadData(int a)
@@ -474,7 +495,7 @@ int UserLogin(string b, int c)
 						cout << "b: " << b << endl;*/
 						if ( ("LOGIN " + lineUsers) == b){
 							userValid = 1;	//Set User is Valid Flag; User will be logged in at end of function
-							connInfo[0][c] = lineUsers;  //add user login to connection array
+							//connInfo[0][c] = lineUsers;  //add user login to connection array
 							
 						}
 						if ( (b) == "LOGIN root root01")
