@@ -24,7 +24,7 @@ NOTES:			Available on GitHub: https://github.com/GLawlor-/Unix-Socket-Project
 using namespace std;
 
 #define SERVER_PORT 5556
-#define MAX_LINE 256
+#define MAX_LINE 512
 #define STDIN 0
 
 int main(int argc, char * argv[]) {
@@ -108,7 +108,8 @@ int main(int argc, char * argv[]) {
 			// handle data from the server
 			if (recv(s, buf, sizeof(buf), 0) > 0)
 			{
-				cout << "\nServer: " << buf << flush;
+				cout << "\nServer: " << buf;
+				
 				//Client reactions start here
 				if (strcmp(buf,"Quitting program...\n----All your base are belong to us!----\n") == 0)
 				{
@@ -120,15 +121,16 @@ int main(int argc, char * argv[]) {
 					cout << "Server Shutdown" << endl;
 					exit(1);
 				}
-				else if (strcmp(buf,"210 The server is about to shutdown...\nGoodbye\n") == 0)
+				else if (strcmp(buf,"\n210 The server is about to shutdown...\nGoodbye\n") == 0)
 				{
-					//cout << buf << endl;
-					cout << endl;
+					//cout << buf << endl << flush;
+					//cout << endl << endl;
+					close(s);
 					exit(1);
 				}
 				else if (strcmp(buf,"200 OK\n") == 0)
 				{
-					//Received Signal that MSGSTORE is writable
+					//Received Signal that MSGSTORE or MSGRELAY is writable
 					cout << "Logged In, Send buffer\n";
 					char msgstorsnd[MAX_LINE] = "";
 					//Get user's input for MSGSTORE

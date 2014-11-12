@@ -28,14 +28,14 @@ NOTES:			Available on GitHub: https://github.com/GLawlor-/Unix-Socket-Project
 using namespace std;
 
 #define PORT 5556  // port we're listening on
-#define MAX_LINE 256
+#define MAX_LINE 512
 
 fd_set master;   // master file descriptor list
 int listener;    // listening socket descriptor
 int fdmax;
 int line_count;	 // Set global variable for MSG Tracking
 int shutdowncmd = 0; //Flag to signal server shutdown
-string logUser[10][10];
+string connInfo[10][10];  //List of 10 connections, with information
 
 // the child thread
 void *ChildThread(void *newfd) {
@@ -52,7 +52,7 @@ void *ChildThread(void *newfd) {
 	int rootuser = 0;	//Flag if root user
 	
 	string ReadData(int a);  //Declare function to read Message of the Day data
-	int UserLogin(string b, int c);
+	int UserLogin(string b, int c);  //Function to check if user and password is correct
 	string SendMessage(int a);
 	
     while(1) {
@@ -74,8 +74,6 @@ void *ChildThread(void *newfd) {
 
 			if( (strcmp(buf, "1\n")) == 0 || (strcmp(buf, "MSGGET\n")) == 0 )
 			{
-				//cout << "MSGGET Received" << endl;
-				
 				string currentsay = "200 OK\n" + ReadData(mnum);  //retrieve Message of the Day from ReadData function
 				mnum++;		//Increment so next request provides different message
 				//Reset mnum if end of file reached
@@ -91,19 +89,14 @@ void *ChildThread(void *newfd) {
 				send (childSocket, msgres, msglen, 0);
 				//debugging output
 				//cout << endl << "buffer contains: " << msgres;	//Debug use only
-				
-				/*
-				char msgres[MAX_LINE] = "MSGGET Received\n";
-				msglen = strlen (msgres)+1;
-				//send(j,msgres, msglen, 0);
-				send (childSocket, msgres, msglen, 0);*/		
+						
 			}
 			
 			
 			else if( (strcmp(buf, "2\n")) == 0 || (strcmp(buf, "MSGSTORE\n")) == 0 )
 			{
 				//Append to MoD.txt
-				//Check if user is logged in
+				//Check if user is logged in as general user or root
 				if (( loggedin == 1) || (loggedin == 2))
 				{
 					char msgres[MAX_LINE] = "200 OK\n";
@@ -127,7 +120,7 @@ void *ChildThread(void *newfd) {
 					}
 					else 
 					{
-						char msgres1[MAX_LINE] = "403 Error opening file\n";
+						char msgres1[MAX_LINE] = "403 Error opening file\n";  //Send error msg if we can't find file
 						msglen1 = strlen (msgres1)+1;	//Calculate size of buffer
 						send (childSocket, msgres1, msglen1, 0);	//send message to client
 					}
@@ -137,6 +130,7 @@ void *ChildThread(void *newfd) {
 				}
 				else
 				{
+					//access denied... must log in first
 					char msgres[MAX_LINE] = "401 You are not currently logged in, login first.\n";
 					msglen = strlen (msgres)+1;
 					send (childSocket, msgres, msglen, 0);
@@ -155,7 +149,6 @@ void *ChildThread(void *newfd) {
 //Gareth - Done	
 			else if( (strcmp(buf, "4\n")) == 0 || (strcmp(buf, "QUIT\n")) == 0 )
 			{
-				//cout<< "Quitting program...\n----All your base are belong to us!----\n";
 				char msgres[MAX_LINE] = "Quitting program...\n----All your base are belong to us!----\n";
 				msglen = strlen (msgres)+1;
 				send (childSocket, msgres, msglen, 0); 
@@ -173,16 +166,14 @@ void *ChildThread(void *newfd) {
 					//shutdown command: take care of shutting down server side items
 					int shutdown(int childSocket, int how);
 					
-					shutdowncmd = 1;
-					//exit(1);
+					//shutdowncmd = 1;
 					
 					//close all open sockets and files, then terminate.  In case of error the string
-					//need "300 message format error" should be returned.
+					//"300 message format error" should be returned.
+					
 					//send to all
 					char shutd[MAX_LINE] = "\n210 The server is about to shutdown...\nGoodbye\n";
 					msglen = strlen (shutd)+1;
-					
-					
 					for(j = 0; j <= fdmax; j++) {
 						// send to everyone!
 						if (FD_ISSET(j, &master)) {
@@ -194,17 +185,17 @@ void *ChildThread(void *newfd) {
 								}
 							}
 						}
+						//Shut all sockets
 						int shutdown(int j, int how);
 					}
 					
-					//Shutdown sockets and then server program
-					if ( shutdowncmd == 1 )
-					{
+					//Sockets are shutdown, so stop server program
+					//if ( shutdowncmd == 1 )
+					//{
 						cout << "Client " << childSocket << " Initiated Shut Down" << endl;
 						exit(1);
-					}	
-					
-					
+						cout << "300 message format error" << endl;  //Something went wrong if this happens
+					//}	
 					
 				}	
 				else
@@ -220,7 +211,7 @@ void *ChildThread(void *newfd) {
 			else if( (strcmp(buf, "MENU\n")) == 0 || (strcmp(buf, "?\n")) == 0 )
 			{
 				//Provide help to client user: # or COMMANDS are acceptable
-				char msgres[MAX_LINE] = "\n1) MSGGET: Get message\n2) MSGSTORE: Add message(Must be logged in)\n3) LOGOUT: Logout to server\n4) QUIT: Close client application\n5) SHUTDOWN: Shut down Server (Must be logged in)\n>) LOGIN USER PASS : Login to server with username and password\n";
+				char msgres[MAX_LINE] = "\n1) MSGGET: Get message\n2) MSGSTORE: Add message(Must be logged in)\n3) LOGOUT: Logout to server\n4) QUIT: Close client application\n5) SHUTDOWN: Shut down Server (Must be logged in)\n>) LOGIN USER PASS : Login to server with username and password\n>) WHO: Get a list of all logged-in users and IP address\n>) SEND username :Sends a message to the  specified user\n";
 				msglen = strlen (msgres)+1;
 				send (childSocket, msgres, msglen, 0);
 			}
@@ -233,11 +224,7 @@ void *ChildThread(void *newfd) {
 				string bufstring = buf;			//Convert to string so we can pass to function
 				loggedin = UserLogin(bufstring,childSocket);//Find if the user is in our flat file
 				
-				//need to increment and find user
-				//cout << "LOGGEDIN: " << logUser[0][4];
-				cout << "LOGGEDIN: " << logUser[0][childSocket];
-				//Can't find user
-				cout << "420 either the user does not exist or is not logged in" << endl;
+				
 				
 				
 				//Send message of loggedin status
@@ -255,9 +242,65 @@ void *ChildThread(void *newfd) {
 				}
 			}
 			//WHO -- Josh
+			else if( (strcmp(buf, "WHO\n")) == 0 )
+			{
+				//convert from string to char array so we can send through socket
+				/*
+				char msgres[MAX_LINE] = "";	//blank out msgres char array
+				string listUsers = "200 OK\nThe list of active users:\njohn  127.0.0.1"
+				size_t length = listUsers.copy(msgres,MAX_LINE,0);
+				msgres[length]='\n';	//add newline at end of Message of the Day
+				*/
+				char msgres[MAX_LINE] = "200 OK\nThe list of active users:\njohn		127.0.0.1\n";
+				msglen = strlen (msgres)+1;
+				send (childSocket, msgres, msglen, 0);
+			}
 			
 			//SEND -- Gareth
-			
+			else if( (strstr(buf, "SEND")) != NULL )
+			{
+				//cout << "buf: " << buf << endl;
+				
+				//need to increment and find user
+				//cout << "LOGGEDIN: " << logUser[0][4];
+				
+				//find all open sockets
+				
+				//cout << "LOGGEDIN: " << connInfo[0][childSocket] << endl;
+				//cout << "ALL LoggedIN: " << logUser << endl;
+				
+				//need to string find user
+				
+				//need to return Login Socket
+				
+				if ( 1==1 )
+				{
+					char msgres[MAX_LINE] = "200 OK\n";
+					msglen = strlen (msgres)+1;
+					send (childSocket, msgres, msglen, 0); //Send OK message
+					recv(childSocket, buf, sizeof(buf), 0);	//receive msg to transmit
+					int buf1size = strlen(buf) + 1;	//size of second receive
+					cout << "Client(MessageRelay): " << buf << "   size: "<<buf1size<<endl;	//Display received message and size
+					//cout << buf << endl;	//output buf contents
+					char msgres1[MAX_LINE] = "200 OK\n";	//send confirmation
+					msglen1 = strlen (msgres1)+1;	//Calculate size of buffer
+					send (childSocket, msgres1, msglen1, 0);	//send message to client
+					buf[sizeof(buf)-1] = '\n';
+					send (5, buf, sizeof(buf), 0);
+				}
+				else 
+				{
+					char msgres[MAX_LINE] = "420 either the user does not exist or is not logged in\n"; //Send error msg if we can't find user
+					msglen1 = strlen (msgres)+1;	//Calculate size of buffer
+					send (childSocket, msgres, msglen1, 0);	//send message to another user
+				}
+				
+				
+				
+				
+				
+				
+			}
 			
 			else if( (strcmp(buf, "\n")) == 0 )
 			{
@@ -269,7 +312,7 @@ void *ChildThread(void *newfd) {
 			
 			else  //Catch everything else; tell client we don't understand the option
 			{
-				cout << "Not Recognized"<<endl;
+				cout << "Server: Not Recognized" <<endl;
 				char msgres[MAX_LINE] = "Command not recognized\n--Type MENU or ? for available options--\n";
 				msglen = strlen (msgres)+1;
 				send (childSocket, msgres, msglen, 0);
@@ -356,6 +399,8 @@ int main(void)
             cout << "Server: new connection from "
 		 		 << inet_ntoa(remoteaddr.sin_addr)
                  << " socket " << newfd << endl;
+			//set the socket info here
+			
 			
             if (newfd > fdmax) {    // keep track of the maximum
                 fdmax = newfd;
@@ -373,6 +418,7 @@ int main(void)
 
 string SendMessage(int a)
 {
+	
 	string data[] = "Send Message\n";
 	string data2 = data[a];
 	return data2;
@@ -384,8 +430,6 @@ string ReadData(int a)
 				//char null[1];
 				string line;
 				line_count = 0;  //reset # of lines
-				//char numstr[21];
-				//string result;
 				//Pull from file; Have to read everytime in case their are new entries
 				ifstream infile;
 				infile.open("MoD.txt");
@@ -430,7 +474,7 @@ int UserLogin(string b, int c)
 						cout << "b: " << b << endl;*/
 						if ( ("LOGIN " + lineUsers) == b){
 							userValid = 1;	//Set User is Valid Flag; User will be logged in at end of function
-							logUser[0][c] = lineUsers;
+							connInfo[0][c] = lineUsers;  //add user login to connection array
 							
 						}
 						if ( (b) == "LOGIN root root01")
